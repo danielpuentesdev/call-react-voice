@@ -75,12 +75,20 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
 
   // Configurar WebSocket
   const setupWebSocket = useCallback(() => {
+    // Solo intentar conectar si hay una URL válida
+    if (!websocketUrl || websocketUrl === 'ws://localhost:8080') {
+      console.log('WebSocket no configurado o usando URL por defecto - modo demo');
+      setError('WebSocket no configurado (modo demo)');
+      return;
+    }
+
     try {
+      console.log('Intentando conectar WebSocket:', websocketUrl);
       const ws = new WebSocket(websocketUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('WebSocket conectado');
+        console.log('WebSocket conectado exitosamente');
         setIsConnected(true);
         setError(null);
       };
@@ -88,6 +96,7 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
+          console.log('Mensaje recibido:', message);
           
           if (message.type === 'tts_chunk' && message.data) {
             playAudio(message.data);
@@ -97,20 +106,20 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
         }
       };
 
-      ws.onclose = () => {
-        console.log('WebSocket desconectado');
+      ws.onclose = (event) => {
+        console.log('WebSocket desconectado. Código:', event.code, 'Razón:', event.reason);
         setIsConnected(false);
       };
 
       ws.onerror = (error) => {
         console.error('Error WebSocket:', error);
-        setError('Error de conexión WebSocket');
+        setError('No se pudo conectar al WebSocket. Verifica que tu servidor esté corriendo.');
         setIsConnected(false);
       };
 
     } catch (error) {
       console.error('Error configurando WebSocket:', error);
-      setError('Error configurando WebSocket');
+      setError('Error configurando WebSocket: ' + error);
     }
   }, [websocketUrl, playAudio]);
 
@@ -219,20 +228,15 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({
 
   // Iniciar automáticamente al montar el componente
   useEffect(() => {
+    console.log('Componente montado, iniciando llamada...');
     startCall();
 
     // Cleanup al desmontar
     return () => {
+      console.log('Componente desmontado, terminando llamada...');
       endCall();
     };
-  }, []);
-
-  // Limpiar al desmontar el componente
-  useEffect(() => {
-    return () => {
-      endCall();
-    };
-  }, [endCall]);
+  }, []); // Sin dependencias para evitar re-renders
 
   return (
     <div className="flex flex-col items-center space-y-4 p-6">
